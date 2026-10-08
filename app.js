@@ -114,10 +114,67 @@ function renderStock(){
   },{passive:false});
  })
 }
+function purchaseTotalFromDom(){
+  let total=0;
+  document.querySelectorAll('#purchaseList .purchase-fixed-row').forEach(row=>{
+    const q=Number(row.querySelector('[data-pqty]')?.value)||0;
+    const u=Number(row.querySelector('[data-punit]')?.value)||0;
+    total+=q*u;
+  });
+  document.querySelectorAll('#purchaseList .purchase-custom-row').forEach(row=>{
+    const q=Number(row.dataset.qty)||0,u=Number(row.dataset.unit)||0;
+    total+=q*u;
+  });
+  return total;
+}
 function renderPurchases(){
- const el=$('purchaseList');el.innerHTML=state.purchases.length?state.purchases.map(x=>`<div class="row"><div><div class="row-title">${esc(x.produto)}</div><div class="muted">${x.quantidade} × ${money(x.valor_unitario)} ${x.observacao?'· '+esc(x.observacao):''}</div></div><div class="row-actions"><span class="money">${money(Number(x.quantidade)*Number(x.valor_unitario))}</span><button class="ghost" data-pe="${x.id}">Editar</button><button class="ghost" data-pd="${x.id}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhuma compra registrada.</div>';
- $('purchaseTotal').textContent=money(state.purchases.reduce((s,x)=>s+Number(x.quantidade)*Number(x.valor_unitario),0));
- el.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>openPurchase(b.dataset.pe));el.querySelectorAll('[data-pd]').forEach(b=>b.onclick=async()=>{if(confirm('Excluir este item?')){let r=await db.from('compras_secao').delete().eq('id',b.dataset.pd);if(r.error)toast(r.error.message);else load()}})
+  const el=$('purchaseList');
+  const byProduct=new Map(state.purchases.filter(x=>x.produto_id).map(x=>[x.produto_id,x]));
+  const fixed=state.products.map(p=>{
+    const x=byProduct.get(p.id);
+    const q=Number(x?.quantidade||0),u=Number(x?.valor_unitario||0),t=q*u;
+    return `<div class="purchase-fixed-row" data-product="${p.id}">
+      <div class="purchase-product"><div class="row-title">${esc(p.nome)}</div><div class="muted">${esc(p.unidade||'un')}</div></div>
+      <label class="purchase-field">Quantidade<input data-pqty type="number" min="0" step="0.01" value="${q}"></label>
+      <label class="purchase-field">Valor unitário<input data-punit type="number" min="0" step="0.01" value="${u}"></label>
+      <div class="purchase-line"><span>Total</span><strong data-pline>${money(t)}</strong></div>
+      <div class="purchase-actions"><button type="button" class="primary" data-psave="${p.id}">${x?'Salvar':'Registrar'}</button>${x?'<button type="button" class="ghost" data-pdel="'+x.id+'">Limpar</button>':''}</div>
+    </div>`;
+  }).join('');
+  const customs=state.purchases.filter(x=>!x.produto_id).map(x=>`<div class="row purchase-custom-row" data-qty="${Number(x.quantidade)||0}" data-unit="${Number(x.valor_unitario)||0}">
+    <div><div class="row-title">${esc(x.produto)}</div><div class="muted">${x.quantidade} × ${money(x.valor_unitario)}</div></div>
+    <div class="row-actions"><span class="money">${money(Number(x.quantidade)*Number(x.valor_unitario))}</span><button type="button" class="ghost" data-pe="${x.id}">Editar</button><button type="button" class="ghost" data-pd="${x.id}">Excluir</button></div>
+  </div>`).join('');
+  el.innerHTML=fixed+(customs?`<div class="purchase-extra-title">Outros itens adicionados</div>${customs}`:'');
+  $('purchaseTotal').textContent=money(purchaseTotalFromDom());
+  el.querySelectorAll('[data-pqty],[data-punit]').forEach(inp=>inp.addEventListener('input',()=>{
+    const row=inp.closest('.purchase-fixed-row'),q=Number(row.querySelector('[data-pqty]').value)||0,u=Number(row.querySelector('[data-punit]').value)||0;
+    row.querySelector('[data-pline]').textContent=money(q*u);
+    $('purchaseTotal').textContent=money(purchaseTotalFromDom());
+  }));
+  el.querySelectorAll('[data-psave]').forEach(b=>b.onclick=async()=>{
+    const row=b.closest('.purchase-fixed-row'),productId=b.dataset.psave;
+    const q=Number(row.querySelector('[data-pqty]').value)||0,u=Number(row.querySelector('[data-punit]').value)||0;
+    const existing=state.purchases.find(x=>x.produto_id===productId);
+    const product=state.products.find(x=>x.id===productId);
+    b.disabled=true;b.textContent='Salvando...';
+    try{
+      let r;
+      if(existing) r=await db.from('compras_secao').update({quantidade:q,valor_unitario:u,produto:product?.nome||existing.produto}).eq('id',existing.id);
+      else r=await db.from('compras_secao').insert({competencia_id:state.month.id,produto_id:productId,produto:product?.nome||'Produto',quantidade:q,valor_unitario:u});
+      if(r.error){toast('Erro ao salvar: '+r.error.message);return}
+      toast('Compra salva.');
+      await load();
+    }catch(e){console.error(e);toast('Erro ao salvar compra: '+(e.message||e))}
+    finally{b.disabled=false;b.textContent=existing?'Salvar':'Registrar'}
+  });
+  el.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('Limpar este item da compra?'))return;
+    const r=await db.from('compras_secao').delete().eq('id',b.dataset.pdel);
+    if(r.error)toast(r.error.message);else load();
+  });
+  el.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>openPurchase(b.dataset.pe));
+  el.querySelectorAll('[data-pd]').forEach(b=>b.onclick=async()=>{if(confirm('Excluir este item?')){let r=await db.from('compras_secao').delete().eq('id',b.dataset.pd);if(r.error)toast(r.error.message);else load()}});
 }
 function renderNfs(){
  const el=$('nfList');el.innerHTML=state.nfs.length?state.nfs.map(x=>`<div class="row"><div><div class="row-title">NF ${esc(x.numero_nf||'—')} · ${esc(x.fornecedor||'Fornecedor não informado')}</div><div class="muted">${x.data_nf?new Date(x.data_nf+'T12:00:00').toLocaleDateString('pt-BR'):''}${x.observacao?' · '+esc(x.observacao):''}</div></div><div class="row-actions"><span class="money">${money(x.valor)}</span><button class="ghost" data-ne="${x.id}">Editar</button><button class="ghost" data-nd="${x.id}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhuma NF registrada.</div>';
@@ -134,8 +191,30 @@ $('participantDialog').querySelector('[value="cancel"]').type='button';$('partic
 async function saveParticipant(e){e.preventDefault();const id=$('participantId').value,name=$('participantName').value.trim(),ativo=$('participantActive').checked;if(!name)return;if(id){await db.from('participantes').update({nome,ativo}).eq('id',id)}else{const r=await db.from('participantes').insert({nome,ativo}).select().single();if(r.error){toast(r.error.message);return}await db.from('pagamentos_secao').insert({competencia_id:state.month.id,participante_id:r.data.id,valor:state.month.valor_padrao,pago:false})}$('participantDialog').close();load()}
 function openPurchase(id){const x=state.purchases.find(p=>p.id===id);$('purchaseId').value=x?.id||'';$('purchaseProduct').innerHTML='<option value="">Manual</option>'+state.products.map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');$('purchaseProduct').value=x?.produto_id||'';$('purchaseName').value=x?.produto||'';$('purchaseQty').value=x?.quantidade??1;$('purchaseUnit').value=x?.valor_unitario??0;$('purchaseObs').value=x?.observacao||'';$('purchaseDialog').showModal()}
 async function savePurchase(e){e.preventDefault();const id=$('purchaseId').value,produto_id=$('purchaseProduct').value||null,produto=$('purchaseName').value.trim(),quantidade=Number($('purchaseQty').value)||0,valor_unitario=Number($('purchaseUnit').value)||0,observacao=$('purchaseObs').value.trim();if(!produto)return;const obj={competencia_id:state.month.id,produto_id,produto,quantidade,valor_unitario,observacao};let r=id?await db.from('compras_secao').update(obj).eq('id',id):await db.from('compras_secao').insert(obj);if(r.error)toast(r.error.message);else{$('purchaseDialog').close();load()}}
-function openNf(id){const x=state.nfs.find(n=>n.id===id);$('nfId').value=x?.id||'';$('nfNumber').value=x?.numero_nf||'';$('nfSupplier').value=x?.fornecedor||'';$('nfDate').value=x?.data_nf||new Date().toISOString().slice(0,10);$('nfValue').value=x?.valor??0;$('nfObs').value=x?.observacao||'';$('nfDialog').showModal()}
-async function saveNf(e){e.preventDefault();const id=$('nfId').value,obj={competencia_id:state.month.id,numero_nf:$('nfNumber').value.trim(),fornecedor:$('nfSupplier').value.trim(),data_nf:$('nfDate').value||null,valor:Number($('nfValue').value)||0,observacao:$('nfObs').value.trim()};let r=id?await db.from('notas_fiscais_secao').update(obj).eq('id',id):await db.from('notas_fiscais_secao').insert(obj);if(r.error)toast(r.error.message);else{$('nfDialog').close();load()}}
+function openNf(id){
+  const x=state.nfs.find(n=>n.id===id);
+  $('nfId').value=x?.id||'';$('nfNumber').value=x?.numero_nf||'';$('nfSupplier').value=x?.fornecedor||'';
+  $('nfDate').value=x?.data_nf||new Date().toISOString().slice(0,10);$('nfValue').value=x?.valor??0;$('nfObs').value=x?.observacao||'';
+  $('nfFile').value='';
+  $('nfFileName').textContent=x?.arquivo_path?'Arquivo já anexado.':'Nenhum arquivo selecionado.';
+  $('nfDialog').showModal()
+}
+async function saveNf(e){
+  e.preventDefault();
+  const id=$('nfId').value,file=$('nfFile').files?.[0];
+  const obj={competencia_id:state.month.id,numero_nf:$('nfNumber').value.trim(),fornecedor:$('nfSupplier').value.trim(),data_nf:$('nfDate').value||null,valor:Number($('nfValue').value)||0,observacao:$('nfObs').value.trim()};
+  let r=id?await db.from('notas_fiscais_secao').update(obj).eq('id',id):await db.from('notas_fiscais_secao').insert(obj).select().single();
+  if(r.error){toast(r.error.message);return}
+  const nfRow=id?state.nfs.find(n=>n.id===id):r.data;
+  if(file&&nfRow){
+    const ext=(file.name.split('.').pop()||'bin').toLowerCase(),path=`${state.month.id}/${nfRow.id}-${Date.now()}.${ext}`;
+    const up=await db.storage.from('notas-fiscais').upload(path,file,{upsert:true});
+    if(up.error){toast('NF salva, mas não foi possível anexar o arquivo: '+up.error.message);$('nfDialog').close();load();return}
+    const ur=await db.from('notas_fiscais_secao').update({arquivo_path:path}).eq('id',nfRow.id);
+    if(ur.error){toast('NF salva, mas o caminho do arquivo não foi gravado.');$('nfDialog').close();load();return}
+  }
+  $('nfDialog').close();toast('Nota fiscal salva.');load()
+}
 async function generatePurchases(){let added=0;for(const s of state.stock){const qty=Number(s.quantidade_a_comprar||0);if(qty<=0)continue;const p=state.products.find(x=>x.id===s.produto_id);if(!p)continue;const already=state.purchases.find(x=>x.produto_id===p.id);if(already)continue;const r=await db.from('compras_secao').insert({competencia_id:state.month.id,produto_id:p.id,produto:p.nome,quantidade:qty,valor_unitario:0});if(!r.error)added++}toast(added?`${added} item(ns) adicionados à lista.`:'Nenhum novo item para adicionar.');load()}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-panel').forEach(x=>x.hidden=true);b.classList.add('active');$('tab-'+b.dataset.tab).hidden=false});
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginMsg').textContent='Entrando...';const r=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(r.error){$('loginMsg').textContent=r.error.message}else{await showApp()}};
