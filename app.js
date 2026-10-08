@@ -8,6 +8,16 @@ const participantOrder=[
   'Sd Carlos','Sd Felipe','Sd Coimbra','Sd Leticia','Sd Correia'
 ];
 const participantAliases={'Sd Fabiana':'Sgt Fabiana'};
+const productOrder=[
+  'Açúcar','Biscoito de coco rosquinha','Biscoito Marilan','Biscoito wafer',
+  'Bolo','Café','Cream Cracker','Filtro','Leite','Manteiga','Margarina','Pão de forma'
+];
+function sortProducts(list){
+  return [...list].sort((a,b)=>{
+    const ia=productOrder.indexOf(a.nome),ib=productOrder.indexOf(b.nome);
+    return (ia===-1?999:ia)-(ib===-1?999:ib) || String(a.nome).localeCompare(String(b.nome),'pt-BR');
+  });
+}
 const rankOrder=['Cap','Ten','Sub','Sgt','Cb','Sd'];
 function sortParticipants(list){
   return [...list].sort((a,b)=>{
@@ -31,7 +41,7 @@ async function ensureMonth(){
     db.from('participantes').select('*').order('nome'),
     db.from('produtos_padrao').select('*').eq('ativo',true).order('nome')
   ]);
-  if(p.error)throw p.error;if(pr.error)throw pr.error; state.participants=sortParticipants(p.data||[]);state.products=pr.data||[];
+  if(p.error)throw p.error;if(pr.error)throw pr.error; state.participants=sortParticipants(p.data||[]);state.products=sortProducts(pr.data||[]);
   let pay=await db.from('pagamentos_secao').select('*').eq('competencia_id',c.id);if(pay.error)throw pay.error;state.payments=pay.data||[];
   let st=await db.from('estoque_secao').select('*').eq('competencia_id',c.id);if(st.error)throw st.error;state.stock=st.data||[];
   if(state.participants.length && state.payments.length<state.participants.length){
