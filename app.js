@@ -109,6 +109,17 @@ async function changeMonth(delta){
   const target=shiftMonth(selectedMonth(),delta);
   await load(target);
 }
+function renderAll(){
+  $('monthTitle').textContent=monthBR(state.month.competencia);
+  $('monthLabel').textContent=monthBR(state.month.competencia);
+  const paid=state.payments.filter(x=>x.pago).reduce((s,x)=>s+Number(x.valor||0),0);
+  const spent=state.purchases.reduce((s,x)=>s+Number(x.quantidade||0)*Number(x.valor_unitario||0),0);
+  $('sumPaid').textContent=money(paid);
+  $('sumSpent').textContent=money(spent);
+  $('sumBalance').textContent=money(paid-spent);
+  $('sumPending').textContent=state.payments.filter(x=>!x.pago).length;
+  renderPayments();renderStock();renderPurchases();renderNfs();renderReport();
+}
 function renderPayments(){
   const el=$('paymentsList'); if(!state.payments.length){el.innerHTML='<div class="empty">Nenhum pagamento cadastrado.</div>';return}
   const orderedPayments=[...state.payments].sort((a,b)=>{
