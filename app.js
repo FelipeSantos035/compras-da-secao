@@ -1,5 +1,20 @@
 const cfg=window.SUPABASE_CONFIG||{};const db=supabase.createClient(cfg.url,cfg.anonKey);
 let state={month:null,participants:[],payments:[],products:[],stock:[],purchases:[],nfs:[]};
+const participantOrder=[
+  'Cap Pelegrini','Cap Jerônimo','Ten Clarice','Sub Gilson',
+  'Sgt Nilson','Sgt Vilela','Sgt Bragato','Sgt Bonafe','Sgt Roberta',
+  'Cb Danylo','Cb Venturela','Cb Panini','Cb Bezerra','Cb Locatelli','Cb Batista','Cb Melo',
+  'Sd Carlos','Sd Felipe','Sd Coimbra','Sd Leticia','Sd Correia','Sd Fabiana'
+];
+const rankOrder=['Cap','Ten','Sub','Sgt','Cb','Sd'];
+function sortParticipants(list){
+  return [...list].sort((a,b)=>{
+    const ia=participantOrder.indexOf(a.nome), ib=participantOrder.indexOf(b.nome);
+    if(ia!==-1 || ib!==-1) return (ia===-1?999:ia)-(ib===-1?999:ib);
+    const ra=rankOrder.findIndex(r=>a.nome?.startsWith(r+' ')), rb=rankOrder.findIndex(r=>b.nome?.startsWith(r+' '));
+    return (ra===-1?999:ra)-(rb===-1?999:rb) || String(a.nome).localeCompare(String(b.nome),'pt-BR');
+  });
+}
 const $=id=>document.getElementById(id), money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const toast=(m)=>{const e=$('toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2400)};
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
@@ -14,7 +29,7 @@ async function ensureMonth(){
     db.from('participantes').select('*').order('nome'),
     db.from('produtos_padrao').select('*').eq('ativo',true).order('nome')
   ]);
-  if(p.error)throw p.error;if(pr.error)throw pr.error; state.participants=p.data||[];state.products=pr.data||[];
+  if(p.error)throw p.error;if(pr.error)throw pr.error; state.participants=sortParticipants(p.data||[]);state.products=pr.data||[];
   let pay=await db.from('pagamentos_secao').select('*').eq('competencia_id',c.id);if(pay.error)throw pay.error;state.payments=pay.data||[];
   let st=await db.from('estoque_secao').select('*').eq('competencia_id',c.id);if(st.error)throw st.error;state.stock=st.data||[];
   if(state.participants.length && state.payments.length<state.participants.length){
