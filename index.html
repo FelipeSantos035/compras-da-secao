@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="description" content="Compras da Seção">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <title>Compras da Seção</title>
+</head>
+<body>
+  <div id="loginView" class="login-wrap">
+    <div class="login-card">
+      <div class="brand big"><span class="logo">🛒</span><div><strong>Compras da Seção</strong><small>Controle mensal</small></div></div>
+      <h1>Acesso</h1>
+      <form id="loginForm">
+        <label>E-mail<input id="email" type="email" required autocomplete="email"></label>
+        <label>Senha<input id="password" type="password" required autocomplete="current-password"></label>
+        <button class="primary" type="submit">Entrar</button>
+        <p id="loginMsg" class="msg"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="appView" hidden>
+    <header class="topbar">
+      <div class="brand"><span class="logo">🛒</span><div><strong>Compras da Seção</strong><small id="monthLabel">Carregando...</small></div></div>
+      <button id="logoutBtn" class="ghost">Sair</button>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <div>
+          <div class="eyebrow">COMPETÊNCIA</div>
+          <h1 id="monthTitle">—</h1>
+        </div>
+        <button id="refreshBtn" class="ghost">↻ Atualizar</button>
+      </section>
+
+      <section class="cards">
+        <div class="stat"><span>Arrecadado</span><strong id="sumPaid">R$ 0,00</strong></div>
+        <div class="stat"><span>Gastos</span><strong id="sumSpent">R$ 0,00</strong></div>
+        <div class="stat"><span>Saldo</span><strong id="sumBalance">R$ 0,00</strong></div>
+        <div class="stat"><span>Pendentes</span><strong id="sumPending">0</strong></div>
+      </section>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="pagamentos">💰 Pagamentos</button>
+        <button class="tab" data-tab="estoque">📦 Estoque</button>
+        <button class="tab" data-tab="compras">🛒 Compras</button>
+        <button class="tab" data-tab="notas">🧾 NF</button>
+        <button class="tab" data-tab="relatorio">📊 Relatório</button>
+      </nav>
+
+      <section id="tab-pagamentos" class="panel tab-panel">
+        <div class="panel-head"><div><h2>Pagamentos</h2><p>Controle mensal dos participantes.</p></div><button id="newParticipantBtn" class="secondary">+ Participante</button></div>
+        <div class="toolbar"><label class="inline">Valor padrão <input id="defaultAmount" type="number" min="0" step="0.01" value="50"></label></div>
+        <div id="paymentsList" class="list"></div>
+      </section>
+
+      <section id="tab-estoque" class="panel tab-panel" hidden>
+        <div class="panel-head"><div><h2>Estoque</h2><p>Informe o estoque atual e o desejado. A quantidade a comprar é calculada automaticamente.</p></div><button id="generatePurchasesBtn" class="primary">Gerar lista de compras</button></div>
+        <div id="stockList" class="list"></div>
+      </section>
+
+      <section id="tab-compras" class="panel tab-panel" hidden>
+        <div class="panel-head"><div><h2>Compras</h2><p>Registre os itens comprados e os valores.</p></div><button id="newPurchaseBtn" class="secondary">+ Item</button></div>
+        <div id="purchaseList" class="list"></div>
+        <div class="total-box">Total das compras <strong id="purchaseTotal">R$ 0,00</strong></div>
+      </section>
+
+      <section id="tab-notas" class="panel tab-panel" hidden>
+        <div class="panel-head"><div><h2>Notas fiscais</h2><p>Registre as NFs do mês.</p></div><button id="newNfBtn" class="secondary">+ NF</button></div>
+        <div id="nfList" class="list"></div>
+      </section>
+
+      <section id="tab-relatorio" class="panel tab-panel" hidden>
+        <div class="panel-head"><div><h2>Relatório</h2><p>Resumo pronto para compartilhar no grupo.</p></div><div class="actions"><button id="copyReportBtn" class="secondary">Copiar</button><button id="whatsappBtn" class="primary">WhatsApp</button></div></div>
+        <pre id="reportText" class="report"></pre>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="participantDialog">
+    <form method="dialog" class="dialog-form" id="participantForm">
+      <h3 id="participantDialogTitle">Participante</h3>
+      <input type="hidden" id="participantId">
+      <label>Nome<input id="participantName" required></label>
+      <label class="check"><input id="participantActive" type="checkbox" checked> Ativo</label>
+      <div class="actions"><button value="cancel" class="ghost">Cancelar</button><button id="saveParticipantBtn" value="default" class="primary">Salvar</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="purchaseDialog">
+    <form method="dialog" class="dialog-form" id="purchaseForm">
+      <h3>Item de compra</h3>
+      <input type="hidden" id="purchaseId">
+      <label>Produto<select id="purchaseProduct"></select></label>
+      <label>Descrição<input id="purchaseName" required></label>
+      <div class="grid2"><label>Quantidade<input id="purchaseQty" type="number" min="0" step="0.01" value="1" required></label><label>Valor unitário<input id="purchaseUnit" type="number" min="0" step="0.01" value="0" required></label></div>
+      <label>Observação<input id="purchaseObs"></label>
+      <div class="actions"><button value="cancel" class="ghost">Cancelar</button><button id="savePurchaseBtn" value="default" class="primary">Salvar</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="nfDialog">
+    <form method="dialog" class="dialog-form" id="nfForm">
+      <h3>Nota fiscal</h3>
+      <input type="hidden" id="nfId">
+      <label>Número da NF<input id="nfNumber"></label>
+      <label>Fornecedor / mercado<input id="nfSupplier"></label>
+      <div class="grid2"><label>Data<input id="nfDate" type="date"></label><label>Valor<input id="nfValue" type="number" min="0" step="0.01"></label></div>
+      <label>Observação<textarea id="nfObs" rows="3"></textarea></label>
+      <div class="actions"><button value="cancel" class="ghost">Cancelar</button><button id="saveNfBtn" value="default" class="primary">Salvar</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
