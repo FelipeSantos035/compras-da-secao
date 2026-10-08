@@ -7,7 +7,7 @@
   <meta name="description" content="Compras da Seção">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg">
-  <link rel="stylesheet" href="styles.css?v=8">
+  <link rel="stylesheet" href="styles.css?v=11">
   <title>Compras da Seção</title>
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).catch(()=>{});}</script>
 </head>
@@ -85,7 +85,7 @@
   </div>
 
   <dialog id="participantDialog">
-    <form method="dialog" class="dialog-form" id="participantForm">
+    <form method="dialog" novalidate class="dialog-form" id="participantForm">
       <h3 id="participantDialogTitle">Participante</h3>
       <input type="hidden" id="participantId">
       <label>Nome<input id="participantName" required></label>
@@ -95,11 +95,11 @@
   </dialog>
 
   <dialog id="purchaseDialog">
-    <form method="dialog" class="dialog-form" id="purchaseForm">
+    <form method="dialog" novalidate class="dialog-form" id="purchaseForm">
       <h3>Item de compra</h3>
       <input type="hidden" id="purchaseId">
       <label>Produto<select id="purchaseProduct"></select></label>
-      <label>Descrição<input id="purchaseName" required></label>
+      <label>Descrição<input id="purchaseName"></label>
       <div class="grid2"><label>Quantidade<input id="purchaseQty" type="number" min="0" step="0.01" value="1" required></label><label>Valor unitário<input id="purchaseUnit" type="number" min="0" step="0.01" value="0" required></label></div>
       <label>Observação<input id="purchaseObs"></label>
       <div class="actions"><button value="cancel" class="ghost">Cancelar</button><button id="savePurchaseBtn" value="default" class="primary">Salvar</button></div>
@@ -107,7 +107,7 @@
   </dialog>
 
   <dialog id="nfDialog">
-    <form method="dialog" class="dialog-form" id="nfForm">
+    <form method="dialog" novalidate class="dialog-form" id="nfForm">
       <h3>Nota fiscal</h3>
       <input type="hidden" id="nfId">
       <label>Número da NF<input id="nfNumber"></label>
@@ -119,8 +119,8 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="config.js?v=8"></script>
+  <script src="config.js?v=11"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
