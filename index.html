@@ -7,7 +7,7 @@
   <meta name="description" content="Compras da Seção">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
   <title>Compras da Seção</title>
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).catch(()=>{});}</script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">
@@ -36,11 +36,7 @@
       <section class="hero">
         <div>
           <div class="eyebrow">COMPETÊNCIA</div>
-          <div class="month-nav">
-            <button id="prevMonthBtn" type="button" class="ghost" aria-label="Mês anterior">‹</button>
-            <h1 id="monthTitle">—</h1>
-            <button id="nextMonthBtn" type="button" class="ghost" aria-label="Próximo mês">›</button>
-          </div>
+          <h1 id="monthTitle">—</h1>
         </div>
         <button id="refreshBtn" type="button" class="ghost">↻ Atualizar</button>
       </section>
@@ -124,8 +120,8 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="config.js?v=15"></script>
+  <script src="config.js?v=16"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
