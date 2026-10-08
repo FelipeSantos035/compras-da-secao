@@ -61,3 +61,29 @@ body{font-size:16px}
   #stockList .row-actions button[data-stock]{grid-column:1 / -1;width:100%;min-height:46px}
   input,select,textarea{max-width:100%}
 }
+
+/* Compras fixas */
+.purchase-help{margin:-4px 0 14px;padding:12px;border-radius:10px;background:#f1f7f6;color:#526363;font-size:13px;line-height:1.45}
+.purchase-list{display:grid;gap:8px}
+.purchase-fixed-row{display:grid;grid-template-columns:minmax(180px,1.5fr) 110px 140px 120px 100px;gap:10px;align-items:end;border:1px solid #e3e9e9;border-radius:12px;padding:11px;background:#fff}
+.purchase-product{align-self:center}
+.purchase-field{font-size:11px;font-weight:700;color:#607070}
+.purchase-field input{margin-top:5px}
+.purchase-line{align-self:center;text-align:right}
+.purchase-line span{display:block;font-size:11px;color:#718080}
+.purchase-line strong{font-size:16px}
+.purchase-actions{display:flex;gap:6px}
+.purchase-actions button{width:100%}
+.purchase-extra-title{font-weight:800;font-size:13px;margin-top:8px;color:#536363}
+.file-note{display:block;margin-top:6px;color:#718080;font-size:11px;font-weight:400}
+@media(max-width:800px){
+  .purchase-fixed-row{grid-template-columns:1fr 1fr;align-items:end}
+  .purchase-product{grid-column:1/-1}
+  .purchase-line{text-align:left}
+  .purchase-actions{grid-column:1/-1}
+}
+@media(max-width:480px){
+  .purchase-fixed-row{grid-template-columns:1fr 1fr;padding:12px}
+  .purchase-field input{min-height:44px}
+  .purchase-actions button{min-height:44px}
+}
