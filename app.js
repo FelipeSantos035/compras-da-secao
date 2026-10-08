@@ -2,14 +2,15 @@ const cfg=window.SUPABASE_CONFIG||{};const db=supabase.createClient(cfg.url,cfg.
 let state={month:null,participants:[],payments:[],products:[],stock:[],purchases:[],nfs:[]};
 const participantOrder=[
   'Cap Pelegrini','Cap Jerônimo','Ten Clarice','Sub Gilson',
-  'Sgt Nilson','Sgt Vilela','Sgt Bragato','Sgt Bonafe','Sgt Roberta',
+  'Sgt Nilson','Sgt Vilela','Sgt Bragato','Sgt Bonafe','Sgt Roberta','Sgt Fabiana',
   'Cb Danylo','Cb Venturela','Cb Panini','Cb Bezerra','Cb Locatelli','Cb Batista','Cb Melo',
-  'Sd Carlos','Sd Felipe','Sd Coimbra','Sd Leticia','Sd Correia','Sd Fabiana'
+  'Sd Carlos','Sd Felipe','Sd Coimbra','Sd Leticia','Sd Correia'
 ];
+const participantAliases={'Sd Fabiana':'Sgt Fabiana'};
 const rankOrder=['Cap','Ten','Sub','Sgt','Cb','Sd'];
 function sortParticipants(list){
   return [...list].sort((a,b)=>{
-    const ia=participantOrder.indexOf(a.nome), ib=participantOrder.indexOf(b.nome);
+    const ia=participantOrder.indexOf(participantAliases[a.nome]||a.nome), ib=participantOrder.indexOf(participantAliases[b.nome]||b.nome);
     if(ia!==-1 || ib!==-1) return (ia===-1?999:ia)-(ib===-1?999:ib);
     const ra=rankOrder.findIndex(r=>a.nome?.startsWith(r+' ')), rb=rankOrder.findIndex(r=>b.nome?.startsWith(r+' '));
     return (ra===-1?999:ra)-(rb===-1?999:rb) || String(a.nome).localeCompare(String(b.nome),'pt-BR');
@@ -77,7 +78,9 @@ function renderReport(){
  let t=`🛒 COMPRAS DA SEÇÃO\n📅 ${monthBR(state.month.competencia)}\n\n💰 ARRECADAÇÃO\nPago: ${money(paid)}\nPendentes: ${pending.length}\n${pending.length?pending.map(x=>'• '+(state.participants.find(p=>p.id===x.participante_id)?.nome||'Participante')).join('\\n'):'Todos pagos'}\n\n🛍️ COMPRAS\nTotal: ${money(spent)}\n${state.purchases.map(x=>'• '+x.produto+' — '+x.quantidade+' × '+money(x.valor_unitario)+' = '+money(Number(x.quantidade)*Number(x.valor_unitario))).join('\\n')||'Nenhuma compra registrada.'}\n\n📊 SALDO: ${money(paid-spent)}\n\n🧾 NFs: ${state.nfs.length}`;
  $('reportText').textContent=t;
 }
+function closeDialog(id){const d=$(id);if(d?.open)d.close()} 
 function openParticipant(id){const p=state.participants.find(x=>x.id===id);$('participantId').value=p?.id||'';$('participantName').value=p?.nome||'';$('participantActive').checked=p?.ativo??true;$('participantDialogTitle').textContent=p?'Editar participante':'Novo participante';$('participantDialog').showModal()}
+$('participantDialog').querySelector('[value="cancel"]').type='button';$('participantDialog').querySelector('[value="cancel"]').onclick=()=>closeDialog('participantDialog');
 async function saveParticipant(e){e.preventDefault();const id=$('participantId').value,name=$('participantName').value.trim(),ativo=$('participantActive').checked;if(!name)return;if(id){await db.from('participantes').update({nome,ativo}).eq('id',id)}else{const r=await db.from('participantes').insert({nome,ativo}).select().single();if(r.error){toast(r.error.message);return}await db.from('pagamentos_secao').insert({competencia_id:state.month.id,participante_id:r.data.id,valor:state.month.valor_padrao,pago:false})}$('participantDialog').close();load()}
 function openPurchase(id){const x=state.purchases.find(p=>p.id===id);$('purchaseId').value=x?.id||'';$('purchaseProduct').innerHTML='<option value="">Manual</option>'+state.products.map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('');$('purchaseProduct').value=x?.produto_id||'';$('purchaseName').value=x?.produto||'';$('purchaseQty').value=x?.quantidade??1;$('purchaseUnit').value=x?.valor_unitario??0;$('purchaseObs').value=x?.observacao||'';$('purchaseDialog').showModal()}
 async function savePurchase(e){e.preventDefault();const id=$('purchaseId').value,produto_id=$('purchaseProduct').value||null,produto=$('purchaseName').value.trim(),quantidade=Number($('purchaseQty').value)||0,valor_unitario=Number($('purchaseUnit').value)||0,observacao=$('purchaseObs').value.trim();if(!produto)return;const obj={competencia_id:state.month.id,produto_id,produto,quantidade,valor_unitario,observacao};let r=id?await db.from('compras_secao').update(obj).eq('id',id):await db.from('compras_secao').insert(obj);if(r.error)toast(r.error.message);else{$('purchaseDialog').close();load()}}
