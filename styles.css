@@ -35,3 +35,29 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   .stock-in,.stock-des{min-width:0}
   .dialog-form{min-width:0;width:min(92vw,440px);max-width:92vw}
 }
+
+/* Mobile stable layout */
+html,body{width:100%;min-width:0;max-width:100%;overflow-x:hidden}
+body{font-size:16px}
+#appView{width:100%;min-width:0}
+@media(max-width:600px){
+  .topbar{width:100%;padding:10px 12px}
+  .topbar .brand{min-width:0;flex:1}
+  .topbar #logoutBtn{flex:0 0 auto}
+  .container{width:100%;max-width:none;margin:0;padding:14px 10px 40px}
+  .hero{width:100%;margin-bottom:12px}
+  .cards{width:100%;grid-template-columns:1fr 1fr}
+  .tabs{width:100%;max-width:100%;display:flex;overflow-x:auto}
+  .panel{width:100%;max-width:100%;padding:14px 10px}
+  .row{width:100%;max-width:100%;display:block}
+  .row-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .row-actions .money{grid-column:1;align-self:center}
+  .row-actions .badge{grid-column:2;justify-self:start;align-self:center}
+  .row-actions button[data-pay]{grid-column:1 / -1;width:100%;min-height:48px}
+  .row-actions button[data-edit]{grid-column:1 / -1;width:100%;min-height:44px}
+  .row-actions button{min-height:44px}
+  #stockList .row-actions{display:grid;grid-template-columns:1fr 1fr}
+  #stockList .row-actions .inline{display:grid;grid-template-columns:auto 1fr;min-width:0}
+  #stockList .row-actions button[data-stock]{grid-column:1 / -1;width:100%;min-height:46px}
+  input,select,textarea{max-width:100%}
+}
