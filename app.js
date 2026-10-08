@@ -30,39 +30,84 @@ function sortParticipants(list){
 const $=id=>document.getElementById(id), money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const toast=(m)=>{const e=$('toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2400)};
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-function monthStart(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10)}
+function monthStart(){
+  const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10)
+}
+function shiftMonth(iso,delta){
+  const d=new Date(iso+'T12:00:00');d.setMonth(d.getMonth()+delta);return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10)
+}
 function monthBR(s){return new Date(s+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}
-async function ensureMonth(){
-  const m=monthStart();
-  let {data:c,error}=await db.from('competencias').select('*').eq('competencia',m).maybeSingle(); if(error) throw error;
-  if(!c){let r=await db.from('competencias').insert({competencia:m,valor_padrao:50}).select().single();if(r.error)throw r.error;c=r.data}
+function selectedMonth(){return state.month?.competencia||monthStart()}
+async function syncStockFinal(){
+  if(!state.month||!state.stock.length)return;
+  for(const s of state.stock){
+    const bought=state.purchases.filter(x=>x.produto_id===s.produto_id).reduce((sum,x)=>sum+Number(x.quantidade||0),0);
+    const final=Number(s.estoque_inicial||0)+bought;
+    if(Number(s.quantidade_comprada||0)!==bought || Number(s.estoque_final||0)!==final){
+      await db.from('estoque_secao').update({quantidade_comprada:bought,estoque_final:final}).eq('id',s.id);
+      s.quantidade_comprada=bought;s.estoque_final=final;
+    }
+  }
+}
+async function ensureMonth(m=monthStart()){
+  let {data:c,error}=await db.from('competencias').select('*').eq('competencia',m).maybeSingle();if(error)throw error;
+  let created=false;
+  if(!c){
+    let r=await db.from('competencias').insert({competencia:m,valor_padrao:50}).select().single();
+    if(r.error)throw r.error;c=r.data;created=true;
+  }
   state.month=c;
   let [p,pr]=await Promise.all([
     db.from('participantes').select('*').order('nome'),
     db.from('produtos_padrao').select('*').eq('ativo',true).order('nome')
   ]);
-  if(p.error)throw p.error;if(pr.error)throw pr.error; state.participants=sortParticipants(p.data||[]);state.products=sortProducts(pr.data||[]);
+  if(p.error)throw p.error;if(pr.error)throw pr.error;
+  state.participants=sortParticipants(p.data||[]);state.products=sortProducts(pr.data||[]);
   let pay=await db.from('pagamentos_secao').select('*').eq('competencia_id',c.id);if(pay.error)throw pay.error;state.payments=pay.data||[];
   let st=await db.from('estoque_secao').select('*').eq('competencia_id',c.id);if(st.error)throw st.error;state.stock=st.data||[];
+
   if(state.participants.length && state.payments.length<state.participants.length){
     const existing=new Set(state.payments.map(x=>x.participante_id));
     const rows=state.participants.filter(x=>!existing.has(x.id)).map(x=>({competencia_id:c.id,participante_id:x.id,valor:c.valor_padrao,pago:false}));
-    if(rows.length){await db.from('pagamentos_secao').insert(rows);let r=await db.from('pagamentos_secao').select('*').eq('competencia_id',c.id);state.payments=r.data||[]}
+    if(rows.length){
+      const ir=await db.from('pagamentos_secao').insert(rows);if(ir.error)throw ir.error;
+      let r=await db.from('pagamentos_secao').select('*').eq('competencia_id',c.id);if(r.error)throw r.error;state.payments=r.data||[];
+    }
   }
+
   if(state.products.length && state.stock.length<state.products.length){
     const existing=new Set(state.stock.map(x=>x.produto_id));
-    const rows=state.products.filter(x=>!existing.has(x.id)).map(x=>({competencia_id:c.id,produto_id:x.id,estoque_inicial:x.estoque_atual||0,estoque_desejado:x.estoque_desejado||x.quantidade_padrao||0}));
-    if(rows.length){await db.from('estoque_secao').insert(rows);let r=await db.from('estoque_secao').select('*').eq('competencia_id',c.id);state.stock=r.data||[]}
+    let previous=[];
+    if(created){
+      const prevId=shiftMonth(m,-1);
+      const pc=await db.from('competencias').select('id').eq('competencia',prevId).maybeSingle();
+      if(pc.error)throw pc.error;
+      if(pc.data){
+        const ps=await db.from('estoque_secao').select('*').eq('competencia_id',pc.data.id);
+        if(ps.error)throw ps.error;previous=ps.data||[];
+      }
+    }
+    const rows=state.products.filter(x=>!existing.has(x.id)).map(x=>{
+      const prev=previous.find(y=>y.produto_id===x.id);
+      const initial=prev?Number(prev.estoque_final ?? prev.estoque_inicial ?? 0):Number(x.estoque_atual||0);
+      const desired=prev?Number(prev.estoque_desejado||0):Number(x.estoque_desejado||x.quantidade_padrao||0);
+      return {competencia_id:c.id,produto_id:x.id,estoque_inicial:initial,estoque_desejado:desired,quantidade_comprada:0,estoque_final:initial};
+    });
+    if(rows.length){
+      const ir=await db.from('estoque_secao').insert(rows);if(ir.error)throw ir.error;
+      let r=await db.from('estoque_secao').select('*').eq('competencia_id',c.id);if(r.error)throw r.error;state.stock=r.data||[];
+    }
   }
   let pu=await db.from('compras_secao').select('*').eq('competencia_id',c.id).order('criado_em');if(pu.error)throw pu.error;state.purchases=pu.data||[];
   let nf=await db.from('notas_fiscais_secao').select('*').eq('competencia_id',c.id).order('data_nf',{ascending:false});if(nf.error)throw nf.error;state.nfs=nf.data||[];
+  await syncStockFinal();
 }
-async function load(){try{await ensureMonth();renderAll()}catch(e){console.error(e);toast('Erro ao carregar dados: '+(e.message||e))}}
-function renderAll(){
-  $('monthTitle').textContent=monthBR(state.month.competencia);$('monthLabel').textContent=monthBR(state.month.competencia);
-  const paid=state.payments.filter(x=>x.pago).reduce((s,x)=>s+Number(x.valor||0),0), spent=state.purchases.reduce((s,x)=>s+Number(x.quantidade||0)*Number(x.valor_unitario||0),0);
-  $('sumPaid').textContent=money(paid);$('sumSpent').textContent=money(spent);$('sumBalance').textContent=money(paid-spent);$('sumPending').textContent=state.payments.filter(x=>!x.pago).length;
-  renderPayments();renderStock();renderPurchases();renderNfs();renderReport();
+async function load(m=selectedMonth()){
+  try{await ensureMonth(m);renderAll()}catch(e){console.error(e);toast('Erro ao carregar dados: '+(e.message||e))}
+}
+async function changeMonth(delta){
+  const target=shiftMonth(selectedMonth(),delta);
+  await load(target);
 }
 function renderPayments(){
   const el=$('paymentsList'); if(!state.payments.length){el.innerHTML='<div class="empty">Nenhum pagamento cadastrado.</div>';return}
@@ -231,7 +276,8 @@ async function generatePurchases(){let added=0;for(const s of state.stock){const
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-panel').forEach(x=>x.hidden=true);b.classList.add('active');$('tab-'+b.dataset.tab).hidden=false});
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginMsg').textContent='Entrando...';const r=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(r.error){$('loginMsg').textContent=r.error.message}else{await showApp()}};
 $('logoutBtn').onclick=async()=>{await db.auth.signOut();$('appView').hidden=true;$('loginView').hidden=false};
-$('refreshBtn').type='button';$('refreshBtn').onclick=load;$('newParticipantBtn').type='button';$('newParticipantBtn').onclick=()=>openParticipant();$('participantForm').onsubmit=saveParticipant;$('newPurchaseBtn').type='button';$('newPurchaseBtn').onclick=()=>openPurchase();$('purchaseForm').onsubmit=savePurchase;$('newNfBtn').type='button';$('newNfBtn').onclick=()=>openNf();$('nfForm').onsubmit=saveNf;$('generatePurchasesBtn').type='button';$('generatePurchasesBtn').onclick=generatePurchases;
+$('refreshBtn').type='button';$('refreshBtn').onclick=()=>load();
+$('prevMonthBtn').onclick=()=>changeMonth(-1);$('nextMonthBtn').onclick=()=>changeMonth(1);$('newParticipantBtn').type='button';$('newParticipantBtn').onclick=()=>openParticipant();$('participantForm').onsubmit=saveParticipant;$('newPurchaseBtn').type='button';$('newPurchaseBtn').onclick=()=>openPurchase();$('purchaseForm').onsubmit=savePurchase;$('newNfBtn').type='button';$('newNfBtn').onclick=()=>openNf();$('nfForm').onsubmit=saveNf;$('generatePurchasesBtn').type='button';$('generatePurchasesBtn').onclick=generatePurchases;
 $('copyReportBtn').onclick=async()=>{await navigator.clipboard.writeText($('reportText').textContent);toast('Relatório copiado.')};
 $('whatsappBtn').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent($('reportText').textContent),'_blank');
 $('defaultAmount').onchange=async()=>{const v=Number($('defaultAmount').value)||0;await db.from('competencias').update({valor_padrao:v}).eq('id',state.month.id);await db.from('pagamentos_secao').update({valor:v}).eq('competencia_id',state.month.id).eq('pago',false);load()};
