@@ -1,3 +1,4 @@
+(async()=>{try{if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();if(regs.length){await Promise.all(regs.map(x=>x.unregister()));}}}catch(e){console.warn('SW cleanup',e)}})();
 const cfg=window.SUPABASE_CONFIG||{};const db=supabase.createClient(cfg.url,cfg.anonKey);
 let state={month:null,participants:[],payments:[],products:[],stock:[],purchases:[],nfs:[]};
 const participantOrder=[
@@ -63,7 +64,27 @@ function renderPayments(){
     return (ia===-1?999:ia)-(ib===-1?999:ib);
   });
   el.innerHTML=orderedPayments.map(p=>{const person=state.participants.find(x=>x.id===p.participante_id);return `<div class="row"><div><div class="row-title">${esc(person?.nome||'Participante')}</div><div class="muted">${p.pago?'Pago'+(p.pago_em?' em '+new Date(p.pago_em).toLocaleDateString('pt-BR'):''):'Pendente'}</div></div><div class="row-actions"><span class="money">${money(p.valor)}</span><span class="badge ${p.pago?'ok':'warn'}">${p.pago?'PAGO':'PENDENTE'}</span><button class="ghost" data-pay="${p.id}">${p.pago?'Desmarcar':'Marcar pago'}</button>${person?`<button class="ghost" data-edit="${person.id}">Editar</button>`:''}</div></div>`}).join('');
-  el.querySelectorAll('[data-pay]').forEach(b=>b.onclick=async()=>{const id=b.dataset.pay,p=state.payments.find(x=>x.id===id);let r=await db.from('pagamentos_secao').update({pago:!p.pago,pago_em:!p.pago?new Date().toISOString():null}).eq('id',id);if(r.error)toast(r.error.message);else load()});
+  el.querySelectorAll('[data-pay]').forEach(b=>{
+    b.type='button';
+    b.addEventListener('click',async()=>{
+      const id=b.dataset.pay;
+      const p=state.payments.find(x=>x.id===id);
+      if(!p)return;
+      const novoPago=!p.pago;
+      const oldText=b.textContent;
+      b.disabled=true;
+      b.textContent=novoPago?'Salvando...':'Salvando...';
+      try{
+        const r=await db.from('pagamentos_secao').update({pago:novoPago,pago_em:novoPago?new Date().toISOString():null}).eq('id',id);
+        if(r.error){toast('Erro ao salvar: '+r.error.message);return}
+        p.pago=novoPago;
+        p.pago_em=novoPago?new Date().toISOString():null;
+        renderAll();
+        toast(novoPago?'Pagamento marcado como pago.':'Pagamento desmarcado.');
+      }catch(e){console.error(e);toast('Erro ao salvar pagamento: '+(e.message||e))}
+      finally{b.disabled=false;b.textContent=oldText}
+    },{passive:false});
+  });
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openParticipant(b.dataset.edit));
 }
 function renderStock(){
@@ -71,24 +92,27 @@ function renderStock(){
  el.innerHTML=state.stock.map(s=>{const p=state.products.find(x=>x.id===s.produto_id);return `<div class="row"><div class="product-cell"><div class="row-title">${esc(p?.nome||'Produto')}</div><div class="muted">A comprar: <b>${Number(s.quantidade_a_comprar||0)}</b> ${esc(p?.unidade||'un')}</div></div><div class="row-actions"><label class="inline">Atual <input class="stock-in" data-id="${s.id}" value="${s.estoque_inicial}" type="number" min="0" step="0.01"></label><label class="inline">Desejado <input class="stock-des" data-id="${s.id}" value="${s.estoque_desejado}" type="number" min="0" step="0.01"></label><button class="ghost" data-stock="${s.id}">Salvar</button></div></div>`}).join('');
  el.querySelectorAll('[data-stock]').forEach(b=>{
   b.type='button';
-  b.onclick=async()=>{
+  b.addEventListener('click',async()=>{
     const id=b.dataset.stock;
     const atual=el.querySelector('.stock-in[data-id="'+id+'"]');
     const desejado=el.querySelector('.stock-des[data-id="'+id+'"]');
-    if(!atual||!desejado){toast('Não foi possível localizar os campos deste produto.');return}
+    const item=state.stock.find(x=>x.id===id);
+    if(!item||!atual||!desejado){toast('Não foi possível localizar este item.');return}
     const a=Number(atual.value)||0;
     const d=Number(desejado.value)||0;
-    b.disabled=true;
-    b.textContent='Salvando...';
+    const oldText=b.textContent;
+    b.disabled=true;b.textContent='Salvando...';
     try{
       const r=await db.from('estoque_secao').update({estoque_inicial:a,estoque_desejado:d,atualizado_em:new Date().toISOString()}).eq('id',id);
-      if(r.error){console.error('Erro ao salvar estoque:',r.error);toast('Erro ao salvar: '+r.error.message);return}
+      if(r.error){toast('Erro ao salvar: '+r.error.message);return}
+      item.estoque_inicial=a;
+      item.estoque_desejado=d;
       toast('Estoque salvo.');
-      await load();
+      renderAll();
     }catch(e){console.error(e);toast('Erro ao salvar estoque: '+(e.message||e))}
-    finally{b.disabled=false;b.textContent='Salvar'}
-  }
-})
+    finally{b.disabled=false;b.textContent=oldText}
+  },{passive:false});
+ })
 }
 function renderPurchases(){
  const el=$('purchaseList');el.innerHTML=state.purchases.length?state.purchases.map(x=>`<div class="row"><div><div class="row-title">${esc(x.produto)}</div><div class="muted">${x.quantidade} × ${money(x.valor_unitario)} ${x.observacao?'· '+esc(x.observacao):''}</div></div><div class="row-actions"><span class="money">${money(Number(x.quantidade)*Number(x.valor_unitario))}</span><button class="ghost" data-pe="${x.id}">Editar</button><button class="ghost" data-pd="${x.id}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhuma compra registrada.</div>';
@@ -116,10 +140,9 @@ async function generatePurchases(){let added=0;for(const s of state.stock){const
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-panel').forEach(x=>x.hidden=true);b.classList.add('active');$('tab-'+b.dataset.tab).hidden=false});
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginMsg').textContent='Entrando...';const r=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(r.error){$('loginMsg').textContent=r.error.message}else{await showApp()}};
 $('logoutBtn').onclick=async()=>{await db.auth.signOut();$('appView').hidden=true;$('loginView').hidden=false};
-$('refreshBtn').onclick=load;$('newParticipantBtn').onclick=()=>openParticipant();$('participantForm').onsubmit=saveParticipant;$('newPurchaseBtn').onclick=()=>openPurchase();$('purchaseForm').onsubmit=savePurchase;$('newNfBtn').onclick=()=>openNf();$('nfForm').onsubmit=saveNf;$('generatePurchasesBtn').onclick=generatePurchases;
+$('refreshBtn').type='button';$('refreshBtn').onclick=load;$('newParticipantBtn').type='button';$('newParticipantBtn').onclick=()=>openParticipant();$('participantForm').onsubmit=saveParticipant;$('newPurchaseBtn').type='button';$('newPurchaseBtn').onclick=()=>openPurchase();$('purchaseForm').onsubmit=savePurchase;$('newNfBtn').type='button';$('newNfBtn').onclick=()=>openNf();$('nfForm').onsubmit=saveNf;$('generatePurchasesBtn').type='button';$('generatePurchasesBtn').onclick=generatePurchases;
 $('copyReportBtn').onclick=async()=>{await navigator.clipboard.writeText($('reportText').textContent);toast('Relatório copiado.')};
 $('whatsappBtn').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent($('reportText').textContent),'_blank');
 $('defaultAmount').onchange=async()=>{const v=Number($('defaultAmount').value)||0;await db.from('competencias').update({valor_padrao:v}).eq('id',state.month.id);await db.from('pagamentos_secao').update({valor:v}).eq('competencia_id',state.month.id).eq('pago',false);load()};
 async function showApp(){$('loginView').hidden=true;$('appView').hidden=false;await load()}
 (async()=>{if(!cfg.anonKey||cfg.anonKey.includes('COLE_AQUI')){console.warn('Configure config.js com a chave anon/public do Supabase.')}const s=await db.auth.getSession();if(s.data.session)await showApp()})();
-if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(console.error);
