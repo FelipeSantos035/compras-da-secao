@@ -7,7 +7,7 @@
   <meta name="description" content="Compras da Seção">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg">
-  <link rel="stylesheet" href="styles.css?v=7">
+  <link rel="stylesheet" href="styles.css?v=8">
   <title>Compras da Seção</title>
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).catch(()=>{});}</script>
 </head>
@@ -67,8 +67,8 @@
       </section>
 
       <section id="tab-compras" class="panel tab-panel" hidden>
-        <div class="panel-head"><div><h2>Compras</h2><p>Registre os itens comprados e os valores.</p></div><button id="newPurchaseBtn" class="secondary">+ Item</button></div>
-        <div id="purchaseList" class="list"></div>
+        <div class="panel-head"><div><h2>Compras</h2><p>Registre os itens comprados e os valores.</p></div><button id="newPurchaseBtn" class="secondary">+ Outro item</button></div>
+        <div class="purchase-help">A lista abaixo é fixa. No mercado, basta informar <b>quantidade</b> e <b>valor unitário</b>; o total de cada item e o total da compra são calculados automaticamente.</div><div id="purchaseList" class="purchase-list"></div>
         <div class="total-box">Total das compras <strong id="purchaseTotal">R$ 0,00</strong></div>
       </section>
 
@@ -113,14 +113,14 @@
       <label>Número da NF<input id="nfNumber"></label>
       <label>Fornecedor / mercado<input id="nfSupplier"></label>
       <div class="grid2"><label>Data<input id="nfDate" type="date"></label><label>Valor<input id="nfValue" type="number" min="0" step="0.01"></label></div>
-      <label>Observação<textarea id="nfObs" rows="3"></textarea></label>
+      <label>Observação<textarea id="nfObs" rows="3"></textarea></label><label>Foto ou PDF da NF<input id="nfFile" type="file" accept="image/*,application/pdf"><small id="nfFileName" class="file-note">Nenhum arquivo selecionado.</small></label>
       <div class="actions"><button value="cancel" class="ghost">Cancelar</button><button id="saveNfBtn" value="default" class="primary">Salvar</button></div>
     </form>
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="config.js?v=7"></script>
+  <script src="config.js?v=8"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
