@@ -82,6 +82,7 @@ function renderStock(){
     finally{b.disabled=false;b.textContent='Salvar'}
   }
 })
+}
 function renderPurchases(){
  const el=$('purchaseList');el.innerHTML=state.purchases.length?state.purchases.map(x=>`<div class="row"><div><div class="row-title">${esc(x.produto)}</div><div class="muted">${x.quantidade} × ${money(x.valor_unitario)} ${x.observacao?'· '+esc(x.observacao):''}</div></div><div class="row-actions"><span class="money">${money(Number(x.quantidade)*Number(x.valor_unitario))}</span><button class="ghost" data-pe="${x.id}">Editar</button><button class="ghost" data-pd="${x.id}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhuma compra registrada.</div>';
  $('purchaseTotal').textContent=money(state.purchases.reduce((s,x)=>s+Number(x.quantidade)*Number(x.valor_unitario),0));
