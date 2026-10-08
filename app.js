@@ -55,7 +55,14 @@ function renderAll(){
 }
 function renderPayments(){
   const el=$('paymentsList'); if(!state.payments.length){el.innerHTML='<div class="empty">Nenhum pagamento cadastrado.</div>';return}
-  el.innerHTML=state.payments.map(p=>{const person=state.participants.find(x=>x.id===p.participante_id);return `<div class="row"><div><div class="row-title">${esc(person?.nome||'Participante')}</div><div class="muted">${p.pago?'Pago'+(p.pago_em?' em '+new Date(p.pago_em).toLocaleDateString('pt-BR'):''):'Pendente'}</div></div><div class="row-actions"><span class="money">${money(p.valor)}</span><span class="badge ${p.pago?'ok':'warn'}">${p.pago?'PAGO':'PENDENTE'}</span><button class="ghost" data-pay="${p.id}">${p.pago?'Desmarcar':'Marcar pago'}</button>${person?`<button class="ghost" data-edit="${person.id}">Editar</button>`:''}</div></div>`}).join('');
+  const orderedPayments=[...state.payments].sort((a,b)=>{
+    const pa=state.participants.find(x=>x.id===a.participante_id);
+    const pb=state.participants.find(x=>x.id===b.participante_id);
+    const ia=participantOrder.indexOf(participantAliases[pa?.nome]||pa?.nome);
+    const ib=participantOrder.indexOf(participantAliases[pb?.nome]||pb?.nome);
+    return (ia===-1?999:ia)-(ib===-1?999:ib);
+  });
+  el.innerHTML=orderedPayments.map(p=>{const person=state.participants.find(x=>x.id===p.participante_id);return `<div class="row"><div><div class="row-title">${esc(person?.nome||'Participante')}</div><div class="muted">${p.pago?'Pago'+(p.pago_em?' em '+new Date(p.pago_em).toLocaleDateString('pt-BR'):''):'Pendente'}</div></div><div class="row-actions"><span class="money">${money(p.valor)}</span><span class="badge ${p.pago?'ok':'warn'}">${p.pago?'PAGO':'PENDENTE'}</span><button class="ghost" data-pay="${p.id}">${p.pago?'Desmarcar':'Marcar pago'}</button>${person?`<button class="ghost" data-edit="${person.id}">Editar</button>`:''}</div></div>`}).join('');
   el.querySelectorAll('[data-pay]').forEach(b=>b.onclick=async()=>{const id=b.dataset.pay,p=state.payments.find(x=>x.id===id);let r=await db.from('pagamentos_secao').update({pago:!p.pago,pago_em:!p.pago?new Date().toISOString():null}).eq('id',id);if(r.error)toast(r.error.message);else load()});
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openParticipant(b.dataset.edit));
 }
